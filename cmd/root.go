@@ -19,6 +19,5 @@ func Execute() {
 }
 
 func init() {
-    // root.AddCommand(Command Name)
-	root.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+    root.AddCommand(install)
 }
