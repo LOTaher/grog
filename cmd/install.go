@@ -1,13 +1,16 @@
 package cmd
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
-    "sync"
+	"sync"
 
 	"github.com/LOTaher/grog/pkg/util"
 	"github.com/spf13/cobra"
@@ -58,8 +61,8 @@ func installPackage(cmd *cobra.Command, args []string) {
 		fmt.Println("Please specify a package name to install.")
 		return
 	}
-    
-    // var wg sync.WaitGroup
+
+	// var wg sync.WaitGroup
 
 	for i := 0; i < len(args); i++ {
 		installer := Installer{}
@@ -95,7 +98,6 @@ func performInstallation(name, version string) error {
 	}
 	defer resp.Body.Close()
 
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -112,4 +114,63 @@ func performInstallation(name, version string) error {
 	// TODO: Implement actual package download and installation logic here.
 
 	return nil
+}
+
+func downloadTarball(url, targetDir string) error {
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if err := os.MkdirAll(targetDir, os.ModePerm); err != nil {
+		return err
+	}
+
+	gzipReader, err := gzip.NewReader(resp.Body)
+	if err != nil {
+		return err
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+
+	for {
+		header, err := tarReader.Next()
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		outputPath := filepath.Join(targetDir, header.Name)
+
+		switch header.Typeflag {
+
+		case tar.TypeDir:
+			if err := os.MkdirAll(outputPath, 0755); err != nil {
+				return err
+			}
+
+		case tar.TypeReg:
+			outFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+			if err != nil {
+				return err
+			}
+
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				outFile.Close()
+				return err
+			}
+
+			outFile.Close()
+
+		}
+	}
+
+	return nil
+
 }
