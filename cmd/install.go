@@ -57,29 +57,42 @@ func (i *Installer) parsePackageDetails(pkg string) error {
 }
 
 func installPackage(cmd *cobra.Command, args []string) {
-	if len(args) < 1 {
-		fmt.Println("Please specify a package name to install.")
-		return
-	}
+    if len(args) < 1 {
+        fmt.Println("Please specify a package name to install.")
+        return
+    }
 
-	// var wg sync.WaitGroup
+    var wg sync.WaitGroup
+    errChan := make(chan error, len(args)) 
 
-	for i := 0; i < len(args); i++ {
-		installer := Installer{}
-		if err := installer.parsePackageDetails(args[i]); err != nil {
-			fmt.Println("Error parsing package details:", err)
-			os.Exit(1)
-		}
+    for _, arg := range args {
+        wg.Add(1)
+        go func(arg string) {
+            defer wg.Done() 
 
-		fmt.Printf("Preparing to install package: %s@%s\n", installer.Name, installer.Version)
+            installer := Installer{}
+            if err := installer.parsePackageDetails(arg); err != nil {
+                errChan <- fmt.Errorf("error parsing package details for %s: %w", arg, err)
+                return
+            }
 
-		if err := performInstallation(installer.Name, installer.Version); err != nil {
-			fmt.Println("Installation failed:", err)
-			os.Exit(1)
-		}
-	}
+            fmt.Printf("Preparing to install package: %s@%s\n", installer.Name, installer.Version)
 
-	// fmt.Printf("Successfully installed package: %s@%s\n", installer.Name, installer.Version)
+            if err := performInstallation(installer.Name, installer.Version); err != nil {
+                errChan <- fmt.Errorf("installation failed for %s@%s: %w", installer.Name, installer.Version, err)
+            }
+        }(arg)
+    }
+
+    wg.Wait()      
+    close(errChan) 
+
+    for err := range errChan {
+        if err != nil {
+            fmt.Println(err)
+            os.Exit(1)
+        }
+    }
 }
 
 func performInstallation(name, version string) error {
@@ -112,6 +125,8 @@ func performInstallation(name, version string) error {
 	fmt.Printf("Package: %s\nVersion: %s\n Tarball URL: %s\n", packageInfo.Name, packageInfo.Version, packageInfo.Dist.Tarball)
 
 	// TODO: Implement actual package download and installation logic here.
+
+	downloadTarball(packageInfo.Dist.Tarball, "test")
 
 	return nil
 }
