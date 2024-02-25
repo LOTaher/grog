@@ -57,45 +57,56 @@ func (i *Installer) parsePackageDetails(pkg string) error {
 }
 
 func installPackage(cmd *cobra.Command, args []string) {
-    if len(args) < 1 {
-        fmt.Println("Please specify a package name to install.")
-        return
-    }
+	if len(args) < 1 {
+		fmt.Println("Please specify a package name to install.")
+		return
+	}
 
-    var wg sync.WaitGroup
-    errChan := make(chan error, len(args)) 
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(args))
 
-    for _, arg := range args {
-        wg.Add(1)
-        go func(arg string) {
-            defer wg.Done() 
+	for _, arg := range args {
+		wg.Add(1)
+		go func(arg string) {
+			defer wg.Done()
 
-            installer := Installer{}
-            if err := installer.parsePackageDetails(arg); err != nil {
-                errChan <- fmt.Errorf("error parsing package details for %s: %w", arg, err)
-                return
-            }
+			installer := Installer{}
+			if err := installer.parsePackageDetails(arg); err != nil {
+				errChan <- fmt.Errorf("error parsing package details for %s: %w", arg, err)
+				return
+			}
 
-            fmt.Printf("Preparing to install package: %s@%s\n", installer.Name, installer.Version)
+			fmt.Printf("Preparing to install package: %s@%s\n", installer.Name, installer.Version)
 
-            if err := performInstallation(installer.Name, installer.Version); err != nil {
-                errChan <- fmt.Errorf("installation failed for %s@%s: %w", installer.Name, installer.Version, err)
-            }
-        }(arg)
-    }
+			if err := performInstallation(installer.Name, installer.Version); err != nil {
+				errChan <- fmt.Errorf("installation failed for %s@%s: %w", installer.Name, installer.Version, err)
+			}
+		}(arg)
+	}
 
-    wg.Wait()      
-    close(errChan) 
+	wg.Wait()
+	close(errChan)
 
-    for err := range errChan {
-        if err != nil {
-            fmt.Println(err)
-            os.Exit(1)
-        }
-    }
+	for err := range errChan {
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}
 }
 
 func performInstallation(name, version string) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("unable to get user home directory: %w", err)
+	}
+
+	cacheDir := filepath.Join(homeDir, ".grog", "cache")
+
+	if err := os.MkdirAll(cacheDir, os.ModePerm); err != nil {
+		return fmt.Errorf("unable to create cache directory: %w", err)
+	}
+
 	url := fmt.Sprintf("%s/%s/%s", npmRegistryURL, name, version)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -122,11 +133,13 @@ func performInstallation(name, version string) error {
 		return err
 	}
 
-	fmt.Printf("Package: %s\nVersion: %s\n Tarball URL: %s\n", packageInfo.Name, packageInfo.Version, packageInfo.Dist.Tarball)
+    targetDir := filepath.Join(cacheDir, packageInfo.Name, packageInfo.Version)
 
-	// TODO: Implement actual package download and installation logic here.
+    if err := downloadTarball(packageInfo.Dist.Tarball, targetDir); err != nil {
+        return fmt.Errorf("failed to download tarball: %w", err)
+    }
 
-	downloadTarball(packageInfo.Dist.Tarball, "test")
+    fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
 
 	return nil
 }
@@ -163,6 +176,10 @@ func downloadTarball(url, targetDir string) error {
 
 		outputPath := filepath.Join(targetDir, header.Name)
 
+        if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+            return fmt.Errorf("failed to create directory for %s: %w", outputPath, err)
+        }
+
 		switch header.Typeflag {
 
 		case tar.TypeDir:
@@ -182,10 +199,9 @@ func downloadTarball(url, targetDir string) error {
 			}
 
 			outFile.Close()
-
 		}
 	}
 
 	return nil
-
 }
+
