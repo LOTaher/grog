@@ -133,14 +133,27 @@ func performInstallation(name, version string) error {
 		return err
 	}
 
-    targetDir := filepath.Join(cacheDir, packageInfo.Name, packageInfo.Version)
+	exists, err := packageCached(packageInfo.Name, packageInfo.Version)
+	if err != nil {
+		return err
+	}
 
-    if err := downloadTarball(packageInfo.Dist.Tarball, targetDir); err != nil {
-        return fmt.Errorf("failed to download tarball: %w", err)
-    }
+	if exists {
+		fmt.Printf("Package %s@%s already exists in the cache. Skipping installation.\n", packageInfo.Name, packageInfo.Version)
+        // Do symlink to node modules here, then exit.
+		os.Exit(0)
+	} else {
+		targetDir := filepath.Join(cacheDir, packageInfo.Name, packageInfo.Version)
 
-    fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
+		if err := downloadTarball(packageInfo.Dist.Tarball, targetDir); err != nil {
+			return fmt.Errorf("failed to download tarball: %w", err)
+		}
+		fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
 
+        // Do symlink to node modules here, then exit.
+
+		return nil
+	}
 	return nil
 }
 
@@ -176,9 +189,9 @@ func downloadTarball(url, targetDir string) error {
 
 		outputPath := filepath.Join(targetDir, header.Name)
 
-        if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-            return fmt.Errorf("failed to create directory for %s: %w", outputPath, err)
-        }
+		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+			return fmt.Errorf("failed to create directory for %s: %w", outputPath, err)
+		}
 
 		switch header.Typeflag {
 
@@ -205,3 +218,20 @@ func downloadTarball(url, targetDir string) error {
 	return nil
 }
 
+func packageCached(name, version string) (bool, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return false, fmt.Errorf("unable to get user home directory: %w", err)
+	}
+
+	cacheDir := filepath.Join(homeDir, ".grog", "cache", name, version)
+	if _, err := os.Stat(cacheDir); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return true, nil
+}
