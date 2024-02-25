@@ -140,21 +140,18 @@ func performInstallation(name, version string) error {
 
 	if exists {
 		fmt.Printf("Package %s@%s already exists in the cache. Skipping installation.\n", packageInfo.Name, packageInfo.Version)
-        // Do symlink to node modules here, then exit.
-		os.Exit(0)
+
+        return symlinkPackage(packageInfo.Name, packageInfo.Version)
 	} else {
-		targetDir := filepath.Join(cacheDir, packageInfo.Name, packageInfo.Version)
+        targetDir := filepath.Join(cacheDir, packageInfo.Name, packageInfo.Version)
 
-		if err := downloadTarball(packageInfo.Dist.Tarball, targetDir); err != nil {
-			return fmt.Errorf("failed to download tarball: %w", err)
-		}
-		fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
+        if err := downloadTarball(packageInfo.Dist.Tarball, targetDir); err != nil {
+            return fmt.Errorf("failed to download tarball: %w", err)
+        }
+        fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
 
-        // Do symlink to node modules here, then exit.
-
-		return nil
-	}
-	return nil
+        return symlinkPackage(packageInfo.Name, packageInfo.Version)
+    }
 }
 
 func downloadTarball(url, targetDir string) error {
@@ -234,4 +231,38 @@ func packageCached(name, version string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func symlinkPackage(name, version string) error {
+    homeDir, err := os.UserHomeDir()
+    if err != nil {
+        return fmt.Errorf("unable to get user home directory: %w", err)
+    }
+
+    cacheDir := filepath.Join(homeDir, ".grog", "cache", name, version)
+    nodeModulesDir := filepath.Join(".", "node_modules")
+
+    if err := os.MkdirAll(nodeModulesDir, os.ModePerm); err != nil {
+        return fmt.Errorf("failed to create node_modules directory: %w", err)
+    }
+
+    symlinkPath := filepath.Join(nodeModulesDir, name)
+
+    _, err = os.Lstat(symlinkPath)
+    if err != nil {
+        if !os.IsNotExist(err) {
+            return fmt.Errorf("failed to stat the symlink: %w", err)
+        }
+    } else {
+        if err := os.Remove(symlinkPath); err != nil {
+            return fmt.Errorf("failed to remove existing symlink: %w", err)
+        }
+    }
+
+    if err := os.Symlink(cacheDir, symlinkPath); err != nil {
+        return fmt.Errorf("failed to create symlink: %w", err)
+    }
+
+    fmt.Printf("Symlinked %s to node_modules\n", name)
+    return nil
 }
