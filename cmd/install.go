@@ -138,10 +138,10 @@ func performInstallation(name, version string) error {
 		return err
 	}
 
+    targetDir := filepath.Join(cacheDir, packageInfo.Name, packageInfo.Version)
+
 	if exists {
 		fmt.Printf("Package %s@%s already exists in the cache. Skipping installation.\n", packageInfo.Name, packageInfo.Version)
-
-        return symlinkPackage(packageInfo.Name, packageInfo.Version)
 	} else {
         targetDir := filepath.Join(cacheDir, packageInfo.Name, packageInfo.Version)
 
@@ -149,9 +149,20 @@ func performInstallation(name, version string) error {
             return fmt.Errorf("failed to download tarball: %w", err)
         }
         fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
-
-        return symlinkPackage(packageInfo.Name, packageInfo.Version)
     }
+
+    if err := symlinkPackage(packageInfo.Name, targetDir); err != nil {
+        return err
+    }
+
+    for depName, depVersion := range packageInfo.Dependencies {
+        fmt.Printf("Installing dependency %s@%s\n", depName, depVersion)
+        if err := performInstallation(depName, depVersion); err != nil {
+            return fmt.Errorf("failed to install dependency %s@%s: %w", depName, depVersion, err)
+        }
+    }
+
+    return nil
 }
 
 func downloadTarball(url, targetDir string) error {
