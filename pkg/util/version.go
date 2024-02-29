@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-    "sort"
+	"sort"
 
 	"github.com/Masterminds/semver/v3"
-    version "github.com/hashicorp/go-version"
 )
 
 type Version struct {
@@ -29,8 +28,7 @@ func (v *Version) reqRegistry(packageName string) error {
 		return err
 	}
 
-	var versions Version
-	if err := json.Unmarshal(body, &versions); err != nil {
+	if err := json.Unmarshal(body, &v); err != nil {
 		fmt.Printf("Error unmarshaling JSON: %v\n", err)
 		return err
 	}
@@ -44,34 +42,32 @@ func BestMatchingVersion(packageName, constraintStr string) (string, error) {
 		return "", err
 	}
 
-	var parsedVersions []*version.Version
+	var parsedVersions []*semver.Version
 	for vStr := range versions.Versions {
-		v, err := version.NewVersion(vStr)
+		v, err := semver.NewVersion(vStr)
 		if err != nil {
 			continue 
 		}
 		parsedVersions = append(parsedVersions, v)
 	}
 
-	sort.Sort(sort.Reverse(version.Collection(parsedVersions)))
+	sort.Slice(parsedVersions, func(i, j int) bool {
+		return parsedVersions[i].LessThan(parsedVersions[j])
+	})
 
-	constr, err := version.NewConstraint(constraintStr)
+	constraint, err := semver.NewConstraint(constraintStr)
 	if err != nil {
 		return "", err
 	}
 
 	for _, v := range parsedVersions {
-		if constr.Check(v) {
-			return v.String(), nil 
+		if constraint.Check(v) {
+			return v.String(), nil
 		}
 	}
 
 	return "", fmt.Errorf("no version found that satisfies the constraint '%s'", constraintStr)
 }
-
-func HasConstraintSymbols(version string) bool {
-    // TODO
-} 
 
 func ValidVersion(version string) (bool, error) {
 

@@ -107,6 +107,15 @@ func performInstallation(name, version string) error {
 		return fmt.Errorf("unable to create cache directory: %w", err)
 	}
 
+    if strings.ContainsAny(version, "<>~^=") {
+        foundVersion, err := util.BestMatchingVersion(name, version)
+        if err != nil {
+            return fmt.Errorf("failed to resolve version constraint '%s' : %w", version, err)
+        }
+
+        version = foundVersion
+    } 
+
 	url := fmt.Sprintf("%s/%s/%s", npmRegistryURL, name, version)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
