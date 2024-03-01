@@ -12,7 +12,7 @@ func SymlinkPackage(name, version string) error {
         return fmt.Errorf("unable to get user home directory: %w", err)
     }
 
-    cacheDir := filepath.Join(homeDir, ".grog", "cache", name, version)
+    cacheDir := filepath.Join(homeDir, ".grog", "cache", name, version, "package")
     nodeModulesDir := filepath.Join(".", "node_modules")
 
     if err := os.MkdirAll(nodeModulesDir, os.ModePerm); err != nil {

@@ -148,8 +148,6 @@ func performInstallation(name, version string) error {
 		return err
 	}
 
-    targetDir := filepath.Join(cacheDir, packageInfo.Name, packageInfo.Version)
-
 	if exists {
 		fmt.Printf("Package %s@%s already exists in the cache. Skipping installation.\n", packageInfo.Name, packageInfo.Version)
 	} else {
@@ -161,7 +159,7 @@ func performInstallation(name, version string) error {
         fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
     }
 
-    if err := symlink.SymlinkPackage(packageInfo.Name, targetDir); err != nil {
+    if err := symlink.SymlinkPackage(packageInfo.Name, packageInfo.Version); err != nil {
         return err
     }
 
