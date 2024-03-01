@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,7 +10,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/LOTaher/grog/pkg/util"
+	"github.com/LOTaher/grog/internal/cache"
+	"github.com/LOTaher/grog/internal/symlink"
+	"github.com/LOTaher/grog/internal/tarball"
+	ver "github.com/LOTaher/grog/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +46,7 @@ func (i *Installer) parsePackageDetails(pkg string) error {
 	i.Version = "latest"
 
 	if len(parts) > 1 && parts[1] != "" {
-		ok, err := util.ValidVersion(parts[1])
+		ok, err := ver.ValidVersion(parts[1])
 		if err != nil {
 			return fmt.Errorf("invalid version '%s': %w", parts[1], err)
 		}
@@ -108,7 +109,7 @@ func performInstallation(name, version string) error {
 	}
 
     if strings.ContainsAny(version, "<>~^=") {
-        foundVersion, err := util.BestMatchingVersion(name, version)
+        foundVersion, err := ver.BestMatchingVersion(name, version)
         if err != nil {
             return fmt.Errorf("failed to resolve version constraint '%s' : %w", version, err)
         }
@@ -142,7 +143,7 @@ func performInstallation(name, version string) error {
 		return err
 	}
 
-	exists, err := packageCached(packageInfo.Name, packageInfo.Version)
+	exists, err := cache.PackageCached(packageInfo.Name, packageInfo.Version)
 	if err != nil {
 		return err
 	}
@@ -154,13 +155,13 @@ func performInstallation(name, version string) error {
 	} else {
         targetDir := filepath.Join(cacheDir, packageInfo.Name, packageInfo.Version)
 
-        if err := downloadTarball(packageInfo.Dist.Tarball, targetDir); err != nil {
+        if err := tarball.DownloadTarball(packageInfo.Dist.Tarball, targetDir); err != nil {
             return fmt.Errorf("failed to download tarball: %w", err)
         }
         fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
     }
 
-    if err := symlinkPackage(packageInfo.Name, targetDir); err != nil {
+    if err := symlink.SymlinkPackage(packageInfo.Name, targetDir); err != nil {
         return err
     }
 
@@ -171,118 +172,5 @@ func performInstallation(name, version string) error {
         }
     }
 
-    return nil
-}
-
-func downloadTarball(url, targetDir string) error {
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if err := os.MkdirAll(targetDir, os.ModePerm); err != nil {
-		return err
-	}
-
-	gzipReader, err := gzip.NewReader(resp.Body)
-	if err != nil {
-		return err
-	}
-	defer gzipReader.Close()
-
-	tarReader := tar.NewReader(gzipReader)
-
-	for {
-		header, err := tarReader.Next()
-
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		outputPath := filepath.Join(targetDir, header.Name)
-
-		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-			return fmt.Errorf("failed to create directory for %s: %w", outputPath, err)
-		}
-
-		switch header.Typeflag {
-
-		case tar.TypeDir:
-			if err := os.MkdirAll(outputPath, 0755); err != nil {
-				return err
-			}
-
-		case tar.TypeReg:
-			outFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
-			if err != nil {
-				return err
-			}
-
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				outFile.Close()
-				return err
-			}
-
-			outFile.Close()
-		}
-	}
-
-	return nil
-}
-
-func packageCached(name, version string) (bool, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return false, fmt.Errorf("unable to get user home directory: %w", err)
-	}
-
-	cacheDir := filepath.Join(homeDir, ".grog", "cache", name, version)
-	if _, err := os.Stat(cacheDir); err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-
-		return false, err
-	}
-
-	return true, nil
-}
-
-func symlinkPackage(name, version string) error {
-    homeDir, err := os.UserHomeDir()
-    if err != nil {
-        return fmt.Errorf("unable to get user home directory: %w", err)
-    }
-
-    cacheDir := filepath.Join(homeDir, ".grog", "cache", name, version)
-    nodeModulesDir := filepath.Join(".", "node_modules")
-
-    if err := os.MkdirAll(nodeModulesDir, os.ModePerm); err != nil {
-        return fmt.Errorf("failed to create node_modules directory: %w", err)
-    }
-
-    symlinkPath := filepath.Join(nodeModulesDir, name)
-
-    _, err = os.Lstat(symlinkPath)
-    if err != nil {
-        if !os.IsNotExist(err) {
-            return fmt.Errorf("failed to stat the symlink: %w", err)
-        }
-    } else {
-        if err := os.Remove(symlinkPath); err != nil {
-            return fmt.Errorf("failed to remove existing symlink: %w", err)
-        }
-    }
-
-    if err := os.Symlink(cacheDir, symlinkPath); err != nil {
-        return fmt.Errorf("failed to create symlink: %w", err)
-    }
-
-    fmt.Printf("Symlinked %s to node_modules\n", name)
     return nil
 }
