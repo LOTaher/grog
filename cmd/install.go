@@ -41,19 +41,39 @@ type Response struct {
 }
 
 func (i *Installer) parsePackageDetails(pkg string) error {
-	parts := strings.Split(pkg, "@")
-	i.Name = parts[0]
-	i.Version = "latest"
+	var packageName, version string
+	atCount := strings.Count(pkg, "@")
 
-	if len(parts) > 1 && parts[1] != "" {
-		ok, err := ver.ValidVersion(parts[1])
+	if atCount == 0 {
+		packageName = pkg
+		version = ""
+	} else if atCount == 1 {
+		parts := strings.SplitN(pkg, "@", 2)
+		packageName = parts[0]
+		version = parts[1]
+	} else if atCount == 2 {
+		parts := strings.SplitN(pkg, "@", 3)
+		packageName = parts[0] + "@" + parts[1]
+		version = parts[2]
+	} else {
+		return fmt.Errorf("invalid package format")
+	}
+
+	if version == "" {
+		version = "latest"
+	} else {
+		ok, err := ver.ValidVersion(version)
 		if err != nil {
-			return fmt.Errorf("invalid version '%s': %w", parts[1], err)
+			return fmt.Errorf("invalid version '%s': %w", version, err)
 		}
-		if ok {
-			i.Version = parts[1]
+		if !ok {
+			return fmt.Errorf("version '%s' is not a valid version", version)
 		}
 	}
+
+	i.Name = packageName
+	i.Version = version
+
 	return nil
 }
 
@@ -108,14 +128,14 @@ func performInstallation(name, version string) error {
 		return fmt.Errorf("unable to create cache directory: %w", err)
 	}
 
-    if strings.ContainsAny(version, "<>~^=") {
-        foundVersion, err := ver.BestMatchingVersion(name, version)
-        if err != nil {
-            return fmt.Errorf("failed to resolve version constraint '%s' : %w", version, err)
-        }
+	if strings.ContainsAny(version, "<>~^=") {
+		foundVersion, err := ver.BestMatchingVersion(name, version)
+		if err != nil {
+			return fmt.Errorf("failed to resolve version constraint '%s' : %w", version, err)
+		}
 
-        version = foundVersion
-    } 
+		version = foundVersion
+	}
 
 	url := fmt.Sprintf("%s/%s/%s", npmRegistryURL, name, version)
 	req, err := http.NewRequest("GET", url, nil)
@@ -151,24 +171,24 @@ func performInstallation(name, version string) error {
 	if exists {
 		fmt.Printf("Package %s@%s already exists in the cache. Skipping installation.\n", packageInfo.Name, packageInfo.Version)
 	} else {
-        targetDir := filepath.Join(cacheDir, packageInfo.Name, packageInfo.Version)
+		targetDir := filepath.Join(cacheDir, packageInfo.Name, packageInfo.Version)
 
-        if err := tarball.DownloadTarball(packageInfo.Dist.Tarball, targetDir); err != nil {
-            return fmt.Errorf("failed to download tarball: %w", err)
-        }
-        fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
-    }
+		if err := tarball.DownloadTarball(packageInfo.Dist.Tarball, targetDir); err != nil {
+			return fmt.Errorf("failed to download tarball: %w", err)
+		}
+		fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
+	}
 
-    if err := symlink.SymlinkPackage(packageInfo.Name, packageInfo.Version); err != nil {
-        return err
-    }
+	if err := symlink.SymlinkPackage(packageInfo.Name, packageInfo.Version); err != nil {
+		return err
+	}
 
-    for depName, depVersion := range packageInfo.Dependencies {
-        fmt.Printf("Installing dependency %s@%s\n", depName, depVersion)
-        if err := performInstallation(depName, depVersion); err != nil {
-            return fmt.Errorf("failed to install dependency %s@%s: %w", depName, depVersion, err)
-        }
-    }
+	for depName, depVersion := range packageInfo.Dependencies {
+		fmt.Printf("Installing dependency %s@%s\n", depName, depVersion)
+		if err := performInstallation(depName, depVersion); err != nil {
+			return fmt.Errorf("failed to install dependency %s@%s: %w", depName, depVersion, err)
+		}
+	}
 
-    return nil
+	return nil
 }

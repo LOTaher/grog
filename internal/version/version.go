@@ -46,7 +46,7 @@ func BestMatchingVersion(packageName, constraintStr string) (string, error) {
 	for vStr := range versions.Versions {
 		v, err := semver.NewVersion(vStr)
 		if err != nil {
-			continue 
+			continue
 		}
 		parsedVersions = append(parsedVersions, v)
 	}
@@ -70,7 +70,6 @@ func BestMatchingVersion(packageName, constraintStr string) (string, error) {
 }
 
 func ValidVersion(version string) (bool, error) {
-
 	_, err := semver.NewVersion(version)
 	if err != nil {
 		return false, fmt.Errorf("invalid version '%s' with error: %s", version, err)
