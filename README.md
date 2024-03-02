@@ -10,6 +10,7 @@ A lightweight node package manager written in go.
 ## Usage
 
 `grog install [package]`
+
 `grog install [package]@[version]`
 
 In order to properly use grog, you must use the `--preserve-symlinks` flag when running `node yourfile.js`. 
