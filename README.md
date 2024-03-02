@@ -36,7 +36,7 @@ Benchmark of [npm](https://www.npmjs.com/) vs. grog using [hyperfine](https://gi
 
 - `grog clear`: Clears the cache.
 - Terminal user interface.
-- Handle package names that have an @ symbol. The current parsing technique splits the package string at "@", preventing the installation of packages like `lotaher@license-generator@latest`.
+- Handle package names that have an @ symbol. The current parsing technique splits the package string at `@`, preventing the installation of packages like `lotaher@license-generator@latest`.
 - The generation of package locks for each installed package to avoid the re-retrieval of dependencies.
 - Creation and maintainence of a `package.json` in the working directory
 - Creation and maintainence of a `package-lock.json` in the project directory 
