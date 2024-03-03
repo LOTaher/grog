@@ -77,3 +77,30 @@ func ValidVersion(version string) (bool, error) {
 
 	return true, nil
 }
+
+func GetMostRecentVersion(pkg string) string {
+	versions := Version{}
+	if err := versions.reqRegistry(pkg); err != nil {
+		fmt.Printf("Error requesting registry: %v\n", err)
+		return ""
+	}
+
+	var highestVersion *semver.Version
+	for version := range versions.Versions {
+		parsedVersion, err := semver.NewVersion(version)
+		if err != nil {
+			fmt.Printf("Error parsing version '%s': %v\n", version, err)
+			continue
+		}
+
+		if highestVersion == nil || parsedVersion.GreaterThan(highestVersion) {
+			highestVersion = parsedVersion
+		}
+	}
+
+	if highestVersion != nil {
+		return highestVersion.String()
+	}
+
+	return ""
+}

@@ -127,6 +127,11 @@ func performInstallation(name, version string) error {
 	if err := os.MkdirAll(cacheDir, os.ModePerm); err != nil {
 		return fmt.Errorf("unable to create cache directory: %w", err)
 	}
+    
+    if len(version) == 1 {
+        v := ver.GetMostRecentVersion(name)
+        version = v
+    }
 
 	if strings.ContainsAny(version, "<>~^=") {
 		foundVersion, err := ver.BestMatchingVersion(name, version)
@@ -156,7 +161,7 @@ func performInstallation(name, version string) error {
 	if err != nil {
 		return err
 	}
-
+    
 	var packageInfo Response
 	if err := json.Unmarshal(body, &packageInfo); err != nil {
 		fmt.Printf("Error unmarshaling JSON: %v\n", err)
