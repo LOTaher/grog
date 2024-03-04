@@ -32,10 +32,10 @@ Benchmark of [npm](https://www.npmjs.com/) vs. grog using [hyperfine](https://gi
 ## Features
 
 - `grog install`: Installs a package, and caches the specific version in the `$HOME/.grog/cache` directory.
+- `grog clear`: Clears the cache.
 
 ## Coming Soon
 
-- `grog clear`: Clears the cache.
 - Terminal user interface.
 - The generation of package locks for each installed package to avoid the re-retrieval of dependencies.
 - Creation and maintainence of a `package.json` in the working directory
