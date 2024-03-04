@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 )
 
+var Cache = filepath.Join(os.Getenv("HOME"), ".grog", "cache")
+
 func PackageCached(name, version string) (bool, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {

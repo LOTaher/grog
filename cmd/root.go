@@ -20,4 +20,5 @@ func Execute() {
 
 func init() {
     root.AddCommand(install)
+    root.AddCommand(clear)
 }
