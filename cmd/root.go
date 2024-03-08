@@ -21,4 +21,6 @@ func Execute() {
 func init() {
     root.AddCommand(install)
     root.AddCommand(clear)
+    root.AddCommand(uninstall)
+    uninstall.PersistentFlags().String("g", "", "Uninstall the package globally.")
 }

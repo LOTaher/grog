@@ -40,6 +40,8 @@ type Response struct {
 	} `json:"dist"`
 }
 
+var InstalledPackages = make(map[string][]string)
+
 func (i *Installer) parsePackageDetails(pkg string) error {
 	var packageName, version string
 	atCount := strings.Count(pkg, "@")
@@ -182,6 +184,8 @@ func performInstallation(name, version string) error {
 			return fmt.Errorf("failed to download tarball: %w", err)
 		}
 		fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
+
+        InstalledPackages[packageInfo.Name] = append(InstalledPackages[packageInfo.Name], packageInfo.Version)
 	}
 
 	if err := symlink.SymlinkPackage(packageInfo.Name, packageInfo.Version); err != nil {
