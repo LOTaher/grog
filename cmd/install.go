@@ -31,6 +31,7 @@ type Installer struct {
 	Version string
 }
 
+/* Put in new file */
 type Response struct {
 	Name         string            `json:"name"`
 	Version      string            `json:"version"`
@@ -39,8 +40,7 @@ type Response struct {
 		Tarball string `json:"tarball"`
 	} `json:"dist"`
 }
-
-var InstalledPackages = make(map[string][]string)
+/* Put in new file */
 
 func (i *Installer) parsePackageDetails(pkg string) error {
 	var packageName, version string
@@ -129,11 +129,11 @@ func performInstallation(name, version string) error {
 	if err := os.MkdirAll(cacheDir, os.ModePerm); err != nil {
 		return fmt.Errorf("unable to create cache directory: %w", err)
 	}
-    
-    if len(version) == 1 {
-        v := ver.GetMostRecentVersion(name)
-        version = v
-    }
+
+	if len(version) == 1 {
+		v := ver.GetMostRecentVersion(name)
+		version = v
+	}
 
 	if strings.ContainsAny(version, "<>~^=") {
 		foundVersion, err := ver.BestMatchingVersion(name, version)
@@ -144,6 +144,30 @@ func performInstallation(name, version string) error {
 		version = foundVersion
 	}
 
+	// Check if the package name is located in the cache. If it is, read it's lock file and check if the version is already installed.
+	// If it is, skip the installation. If it is labeled as "isLatest" in the cache, then do the symlink, if it is not the latest, proceed
+	// with the installation.
+
+	// if exists, err := cache.PackageVersionCached(name, version); exists {
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	//
+	// 	lockFile, err := cache.ReadLockFile(name)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	//
+	// 	if lockFile.isLatest {
+	// 		fmt.Printf("Package %s@%s already exists in the cache. Skipping installation.\n", name, version)
+	// 		if err := symlink.SymlinkPackage(name, version); err != nil {
+	// 			return err
+	// 		}
+	// 		return nil
+	// 	}
+	// }
+    
+    /* Put in new file */
 	url := fmt.Sprintf("%s/%s/%s", npmRegistryURL, name, version)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -163,14 +187,15 @@ func performInstallation(name, version string) error {
 	if err != nil {
 		return err
 	}
-    
+
 	var packageInfo Response
 	if err := json.Unmarshal(body, &packageInfo); err != nil {
 		fmt.Printf("Error unmarshaling JSON: %v\n", err)
 		return err
 	}
+    /* Put in new file */
 
-	exists, err := cache.PackageCached(packageInfo.Name, packageInfo.Version)
+	exists, err := cache.IsVersionCached(packageInfo.Name, packageInfo.Version)
 	if err != nil {
 		return err
 	}
@@ -184,13 +209,13 @@ func performInstallation(name, version string) error {
 			return fmt.Errorf("failed to download tarball: %w", err)
 		}
 		fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
-
-        InstalledPackages[packageInfo.Name] = append(InstalledPackages[packageInfo.Name], packageInfo.Version)
 	}
 
 	if err := symlink.SymlinkPackage(packageInfo.Name, packageInfo.Version); err != nil {
 		return err
 	}
+
+    // Add the packageinfo.Dependencies to the lock file, if it doesn't already exist.
 
 	for depName, depVersion := range packageInfo.Dependencies {
 		fmt.Printf("Installing dependency %s@%s\n", depName, depVersion)
