@@ -1,23 +1,19 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/LOTaher/grog/internal/cache"
+	"github.com/LOTaher/grog/internal/request"
 	"github.com/LOTaher/grog/internal/symlink"
 	"github.com/LOTaher/grog/internal/tarball"
 	ver "github.com/LOTaher/grog/internal/version"
 	"github.com/spf13/cobra"
 )
-
-var npmRegistryURL = "https://registry.npmjs.org"
 
 var install = &cobra.Command{
 	Use:   "install [package]",
@@ -30,17 +26,6 @@ type Installer struct {
 	Name    string
 	Version string
 }
-
-/* Put in new file */
-type Response struct {
-	Name         string            `json:"name"`
-	Version      string            `json:"version"`
-	Dependencies map[string]string `json:"dependencies"`
-	Dist         struct {
-		Tarball string `json:"tarball"`
-	} `json:"dist"`
-}
-/* Put in new file */
 
 func (i *Installer) parsePackageDetails(pkg string) error {
 	var packageName, version string
@@ -167,33 +152,10 @@ func performInstallation(name, version string) error {
 	// 	}
 	// }
     
-    /* Put in new file */
-	url := fmt.Sprintf("%s/%s/%s", npmRegistryURL, name, version)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Accept", "application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	var packageInfo Response
-	if err := json.Unmarshal(body, &packageInfo); err != nil {
-		fmt.Printf("Error unmarshaling JSON: %v\n", err)
-		return err
-	}
-    /* Put in new file */
+    packageInfo, err := request.FetchResponse(name, version)
+    if err != nil {
+        return err
+    }
 
 	exists, err := cache.IsVersionCached(packageInfo.Name, packageInfo.Version)
 	if err != nil {
