@@ -162,6 +162,11 @@ func performInstallation(name, version string) error {
 		return err
 	}
 
+    isLatest, err := ver.IsLatestVersion(packageInfo.Name, packageInfo.Version)
+    if err != nil {
+        return err
+    }
+
 	if exists {
 		fmt.Printf("Package %s@%s already exists in the cache. Skipping installation.\n", packageInfo.Name, packageInfo.Version)
 	} else {
@@ -170,6 +175,12 @@ func performInstallation(name, version string) error {
 		if err := tarball.DownloadTarball(packageInfo.Dist.Tarball, targetDir); err != nil {
 			return fmt.Errorf("failed to download tarball: %w", err)
 		}
+
+        err := cache.CreateLockFile(packageInfo.Name, packageInfo.Version, isLatest, packageInfo.Dependencies)
+        if err != nil {
+            return err
+        }
+
 		fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
 	}
 

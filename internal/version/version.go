@@ -104,3 +104,12 @@ func GetMostRecentVersion(pkg string) string {
 
 	return ""
 }
+
+func IsLatestVersion(pkg, version string) (bool, error) {
+    mostRecentVersion := GetMostRecentVersion(pkg)
+    if mostRecentVersion == "" {
+        return false, fmt.Errorf("failed to get most recent version for %s", pkg)
+    }
+
+    return version == mostRecentVersion, nil
+}
