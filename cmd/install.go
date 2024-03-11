@@ -168,23 +168,37 @@ func performInstallation(name, version string) error {
 		}
 	}
 
-	packageInfo, err := request.FetchResponse(name, version)
-	if err != nil {
-		return err
-	}
-
-	if exists, err := cache.IsVersionCached(packageInfo.Name, packageInfo.Version); exists {
+	if exists, err := cache.IsVersionCached(name, version); exists {
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("Package %s@%s already exists in the cache. Skipping installation.\n", packageInfo.Name, packageInfo.Version)
+		fmt.Printf("Package %s@%s already exists in the cache. Skipping installation.\n", name, version)
 
-		if err := symlink.SymlinkPackage(packageInfo.Name, packageInfo.Version); err != nil {
+		if err := symlink.SymlinkPackage(name, version); err != nil {
 			return err
 		}
 
+		lockfile, err := cache.ReadLockFile(name, version)
+		if err != nil {
+			return err
+		}
+
+		for depName, depVersion := range lockfile.Dependencies {
+			fmt.Printf("Installing dependency %s@%s\n", depName, depVersion)
+			if err := symlink.SymlinkPackage(depName, depVersion); err != nil {
+				return err
+			}
+		}
+
+		return nil
+
 	} else {
+
+		packageInfo, err := request.FetchResponse(name, version)
+		if err != nil {
+			return err
+		}
 
 		isLatest, err := ver.IsLatestVersion(packageInfo.Name, packageInfo.Version)
 		if err != nil {
@@ -207,12 +221,12 @@ func performInstallation(name, version string) error {
 		}
 
 		fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
-	}
 
-	for depName, depVersion := range packageInfo.Dependencies {
-		fmt.Printf("Installing dependency %s@%s\n", depName, depVersion)
-		if err := performInstallation(depName, depVersion); err != nil {
-			return fmt.Errorf("failed to install dependency %s@%s: %w", depName, depVersion, err)
+		for depName, depVersion := range packageInfo.Dependencies {
+			fmt.Printf("Installing dependency %s@%s\n", depName, depVersion)
+			if err := performInstallation(depName, depVersion); err != nil {
+				return fmt.Errorf("failed to install dependency %s@%s: %w", depName, depVersion, err)
+			}
 		}
 	}
 
