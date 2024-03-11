@@ -128,67 +128,86 @@ func performInstallation(name, version string) error {
 
 		version = foundVersion
 	}
+	if version == "latest" {
+		if cached, err := cache.IsPackageCached(name); cached {
+			if err != nil {
+				return err
+			}
 
-	// Check if the package name is located in the cache. If it is, read it's lock file and check if the version is already installed.
-	// If it is, skip the installation. If it is labeled as "isLatest" in the cache, then do the symlink, if it is not the latest, proceed
-	// with the installation.
+			versions, err := cache.GetVersions(name)
+			if err != nil {
+				return err
+			}
 
-	// if exists, err := cache.PackageVersionCached(name, version); exists {
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	lockFile, err := cache.ReadLockFile(name)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	if lockFile.isLatest {
-	// 		fmt.Printf("Package %s@%s already exists in the cache. Skipping installation.\n", name, version)
-	// 		if err := symlink.SymlinkPackage(name, version); err != nil {
-	// 			return err
-	// 		}
-	// 		return nil
-	// 	}
-	// }
-    
-    packageInfo, err := request.FetchResponse(name, version)
-    if err != nil {
-        return err
-    }
+			for _, version := range versions {
+				isLatest, err := cache.IsLockFileLatest(name, version)
+				if err != nil {
+					return err
+				}
+				if isLatest {
+					if err := symlink.SymlinkPackage(name, version); err != nil {
+						return err
+					}
 
-	exists, err := cache.IsVersionCached(packageInfo.Name, packageInfo.Version)
+					lockfile, err := cache.ReadLockFile(name, version)
+					if err != nil {
+						return err
+					}
+
+					fmt.Printf("Package %s@%s is latest version and already exists in the cache. Skipping installation.\n", name, version)
+
+					for depName, depVersion := range lockfile.Dependencies {
+						fmt.Printf("Installing dependency %s@%s\n", depName, depVersion)
+						if err := symlink.SymlinkPackage(depName, depVersion); err != nil {
+							return err
+						}
+					}
+					return nil
+				}
+			}
+		}
+	}
+
+	packageInfo, err := request.FetchResponse(name, version)
 	if err != nil {
 		return err
 	}
 
-    isLatest, err := ver.IsLatestVersion(packageInfo.Name, packageInfo.Version)
-    if err != nil {
-        return err
-    }
+	if exists, err := cache.IsVersionCached(packageInfo.Name, packageInfo.Version); exists {
+		if err != nil {
+			return err
+		}
 
-	if exists {
 		fmt.Printf("Package %s@%s already exists in the cache. Skipping installation.\n", packageInfo.Name, packageInfo.Version)
+
+		if err := symlink.SymlinkPackage(packageInfo.Name, packageInfo.Version); err != nil {
+			return err
+		}
+
 	} else {
+
+		isLatest, err := ver.IsLatestVersion(packageInfo.Name, packageInfo.Version)
+		if err != nil {
+			return err
+		}
+
 		targetDir := filepath.Join(cacheDir, packageInfo.Name, packageInfo.Version)
 
 		if err := tarball.DownloadTarball(packageInfo.Dist.Tarball, targetDir); err != nil {
 			return fmt.Errorf("failed to download tarball: %w", err)
 		}
 
-        err := cache.CreateLockFile(packageInfo.Name, packageInfo.Version, isLatest, packageInfo.Dependencies)
-        if err != nil {
-            return err
-        }
+		err = cache.CreateLockFile(packageInfo.Name, packageInfo.Version, isLatest, packageInfo.Dependencies)
+		if err != nil {
+			return err
+		}
+
+		if err := symlink.SymlinkPackage(packageInfo.Name, packageInfo.Version); err != nil {
+			return err
+		}
 
 		fmt.Printf("Successfully installed %s@%s\n", packageInfo.Name, packageInfo.Version)
 	}
-
-	if err := symlink.SymlinkPackage(packageInfo.Name, packageInfo.Version); err != nil {
-		return err
-	}
-
-    // Add the packageinfo.Dependencies to the lock file, if it doesn't already exist.
 
 	for depName, depVersion := range packageInfo.Dependencies {
 		fmt.Printf("Installing dependency %s@%s\n", depName, depVersion)
