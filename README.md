@@ -33,11 +33,13 @@ Benchmark of [npm](https://www.npmjs.com/) vs. grog using [hyperfine](https://gi
 
 - `grog install`: Installs a package, and caches the specific version in the `$HOME/.grog/cache` directory.
 - `grog clear`: Clears the cache.
+- The generation of package locks for each installed package to avoid the re-retrieval of dependencies.
 
 ## Coming Soon
 
 - Terminal user interface.
-- The generation of package locks for each installed package to avoid the re-retrieval of dependencies.
+- `grog update`: Updates a package.
+- Add flags to `grog clear` to clear specific packages.
 - Creation and maintainence of a `package.json` in the working directory
 - Creation and maintainence of a `package-lock.json` in the project directory 
 - `grog uninstall`: Uninstalls a package.
