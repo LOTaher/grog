@@ -23,4 +23,5 @@ func init() {
     root.AddCommand(clear)
     root.AddCommand(uninstall)
     uninstall.PersistentFlags().String("g", "", "Uninstall the package globally.")
+    uninstall.PersistentFlags().String("a", "", "Uninstall every version of the package.")
 }

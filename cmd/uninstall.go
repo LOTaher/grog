@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	//"github.com/LOTaher/grog/internal/cache"
+	"github.com/LOTaher/grog/internal/cache"
 	ver "github.com/LOTaher/grog/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -22,6 +23,7 @@ type Uninstaller struct {
 	Name    string
 	Version string
 	Global  bool
+	All     bool
 }
 
 func (u *Uninstaller) parsePackageDetails(pkg string) error {
@@ -44,7 +46,11 @@ func (u *Uninstaller) parsePackageDetails(pkg string) error {
 	}
 
 	if version == "" {
-		version = "latest"
+		latestVersion, err := cache.GetLatestVersion(pkg)
+		if err != nil {
+			return fmt.Errorf("unable to get latest version: %w", err)
+		}
+		version = latestVersion
 	} else {
 		ok, err := ver.ValidVersion(version)
 		if err != nil {
@@ -82,15 +88,11 @@ func uninstallPackage(cmd *cobra.Command, args []string) {
 			}
 
 			global, _ := cmd.Flags().GetString("g")
+			all, _ := cmd.Flags().GetString("a")
 			uninstaller.Global = global != ""
+			uninstaller.All = all != ""
 
-			scope := "package"
-			if uninstaller.Global {
-				scope = "package globally"
-			}
-			fmt.Printf("Preparing to uninstall %s: %s@%s\n", scope, uninstaller.Name, uninstaller.Version)
-
-			if err := performUninstallation(uninstaller.Name, uninstaller.Version, uninstaller.Global); err != nil {
+			if err := performUninstallation(uninstaller.Name, uninstaller.Version, uninstaller.Global, uninstaller.All); err != nil {
 				errChan <- fmt.Errorf("uninstallation failed for %s@%s: %w", uninstaller.Name, uninstaller.Version, err)
 			}
 
@@ -108,43 +110,18 @@ func uninstallPackage(cmd *cobra.Command, args []string) {
 	}
 }
 
-func performUninstallation(name, version string, global bool) error {
-
-	// fmt.Println(InstalledPackages)
-	//
-	// versions, ok := InstalledPackages[name]
-	// if !ok {
-	// 	return fmt.Errorf("package %s is not installed", name)
-	// }
-	//
-	// fmt.Printf("Uninstalling package: %s@%s\n", name, version)
-	//
-	// for i, v := range versions {
-	// 	if v == version || version == "latest" {
-	// 		InstalledPackages[name] = append(versions[:i], versions[i+1:]...)
-	//
-	//            if global {
-	//                os.RemoveAll(cache.Cache + "/" + name + "/" + version)
-	//            }
-	//
-	//            os.RemoveAll("./node_modules/" + name)
-	//
-	// 		if len(InstalledPackages[name]) == 0 {
-	// 			delete(InstalledPackages, name)
-	// 		}
-	//
-	// 		fmt.Printf("Uninstalled package: %s@%s\n", name, version)
-	// 		return nil
-	// 	}
-	// }
-
-	// if global {
-	// 	os.RemoveAll(cache.Cache + "/" + name + "/" + version)
-	// }
-
+func performUninstallation(name, version string, global, all bool) error {
 	os.RemoveAll("./node_modules/" + name)
 
-    fmt.Printf("Uninstalled package: %s@%s\n", name, version)
+	if global {
+		os.RemoveAll(cache.Cache + "/" + name + "/" + version)
+		fmt.Printf("Uninstalled package globally: %s@%s\n", name, version)
+	} else if all {
+		os.RemoveAll(cache.Cache + "/" + name)
+		fmt.Printf("Uninstalled all versions of package: %s\n", name)
+	} else {
+		fmt.Printf("Uninstalled package: %s@%s\n", name, version)
+	}
 
 	return nil
 }

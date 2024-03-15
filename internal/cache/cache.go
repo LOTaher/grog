@@ -146,3 +146,25 @@ func GetVersions(name string) ([]string, error) {
 
     return versionStrings, nil
 }
+
+func GetLatestVersion(name string) (string, error) {
+    homeDir, err := os.UserHomeDir()
+    if err != nil {
+        return "", fmt.Errorf("unable to get user home directory: %w", err)
+    }
+
+    versionsDir := filepath.Join(homeDir, ".grog", "cache", name)
+    versions, err := os.ReadDir(versionsDir)
+    if err != nil {
+        return "", fmt.Errorf("failed to read directory: %w", err)
+    }
+
+    var latestVersion string
+    for _, version := range versions {
+        if version.IsDir() {
+            latestVersion = version.Name()
+        }
+    }
+
+    return latestVersion, nil
+}
