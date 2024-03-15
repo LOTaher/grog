@@ -87,10 +87,10 @@ func uninstallPackage(cmd *cobra.Command, args []string) {
 				return
 			}
 
-			global, _ := cmd.Flags().GetString("g")
-			all, _ := cmd.Flags().GetString("a")
-			uninstaller.Global = global != ""
-			uninstaller.All = all != ""
+			global, _ := cmd.Flags().GetBool("g")
+			all, _ := cmd.Flags().GetBool("a")
+			uninstaller.Global = global 
+			uninstaller.All = all 
 
 			if err := performUninstallation(uninstaller.Name, uninstaller.Version, uninstaller.Global, uninstaller.All); err != nil {
 				errChan <- fmt.Errorf("uninstallation failed for %s@%s: %w", uninstaller.Name, uninstaller.Version, err)

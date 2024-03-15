@@ -7,21 +7,22 @@ import (
 )
 
 var root = &cobra.Command{
-    Use: "grog",
-    Short: "grog is a lightweight node package manager written in go.",
+	Use:   "grog",
+	Short: "grog is a lightweight node package manager written in go.",
 }
 
 func Execute() {
-    err := root.Execute()
-    if err != nil {
-        os.Exit(1)
-    }
+	err := root.Execute()
+	if err != nil {
+		os.Exit(1)
+	}
 }
 
 func init() {
-    root.AddCommand(install)
-    root.AddCommand(clear)
-    root.AddCommand(uninstall)
-    uninstall.PersistentFlags().String("g", "", "Uninstall the package globally.")
-    uninstall.PersistentFlags().String("a", "", "Uninstall every version of the package.")
+	root.AddCommand(install)
+	root.AddCommand(clear)
+	root.AddCommand(uninstall)
+	uninstall.PersistentFlags().BoolP("global","g", false, "Uninstall globally.")
+	uninstall.PersistentFlags().BoolP("all", "a", false, "Uninstall every version.")
+
 }
