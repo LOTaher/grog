@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	ver "github.com/LOTaher/grog/internal/version"
 )
 
 var Cache = filepath.Join(os.Getenv("HOME"), ".grog", "cache")
@@ -33,21 +36,21 @@ func IsVersionCached(name, version string) (bool, error) {
 }
 
 func IsPackageCached(name string) (bool, error) {
-    homeDir, err := os.UserHomeDir()
-    if err != nil {
-        return false, fmt.Errorf("unable to get user home directory: %w", err)
-    }
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return false, fmt.Errorf("unable to get user home directory: %w", err)
+	}
 
-    cacheDir := filepath.Join(homeDir, ".grog", "cache", name)
-    if _, err := os.Stat(cacheDir); err != nil {
-        if os.IsNotExist(err) {
-            return false, nil
-        }
+	cacheDir := filepath.Join(homeDir, ".grog", "cache", name)
+	if _, err := os.Stat(cacheDir); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
 
-        return false, err
-    }
+		return false, err
+	}
 
-    return true, nil
+	return true, nil
 }
 
 func CreateLockFile(name, version string, isLatest bool, dependencies map[string]string) error {
@@ -85,33 +88,33 @@ func CreateLockFile(name, version string, isLatest bool, dependencies map[string
 }
 
 func ReadLockFile(name, version string) (LockFile, error) {
-    homeDir, err := os.UserHomeDir()
-    if err != nil {
-        return LockFile{}, fmt.Errorf("unable to get user home directory: %w", err)
-    }
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return LockFile{}, fmt.Errorf("unable to get user home directory: %w", err)
+	}
 
-    lockFilePath := filepath.Join(homeDir, ".grog", "cache", name, version, "package", "grog-lock.json")
+	lockFilePath := filepath.Join(homeDir, ".grog", "cache", name, version, "package", "grog-lock.json")
 
-    file, err := os.ReadFile(lockFilePath)
-    if err != nil {
-        return LockFile{}, fmt.Errorf("failed to read lock file: %w", err)
-    }
+	file, err := os.ReadFile(lockFilePath)
+	if err != nil {
+		return LockFile{}, fmt.Errorf("failed to read lock file: %w", err)
+	}
 
-    var lockFile LockFile
-    if err := json.Unmarshal(file, &lockFile); err != nil {
-        return LockFile{}, fmt.Errorf("failed to unmarshal lock file: %w", err)
-    }
+	var lockFile LockFile
+	if err := json.Unmarshal(file, &lockFile); err != nil {
+		return LockFile{}, fmt.Errorf("failed to unmarshal lock file: %w", err)
+	}
 
-    return lockFile, nil
+	return lockFile, nil
 }
 
 func IsLockFileLatest(name, version string) (bool, error) {
-    homeDir, err := os.UserHomeDir()
-    if err != nil {
-        return false, fmt.Errorf("unable to get user home directory: %w", err)
-    }
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return false, fmt.Errorf("unable to get user home directory: %w", err)
+	}
 
-    lockFilePath := filepath.Join(homeDir, ".grog", "cache", name, version, "package", "grog-lock.json")
+	lockFilePath := filepath.Join(homeDir, ".grog", "cache", name, version, "package", "grog-lock.json")
 
 	file, err := os.ReadFile(lockFilePath)
 	if err != nil {
@@ -120,51 +123,72 @@ func IsLockFileLatest(name, version string) (bool, error) {
 
 	if string(file[13]) == "f" {
 		return false, nil
-    }
+	}
 
-    return true, nil 
+	return true, nil
 }
 
-func GetVersions(name string) ([]string, error) {
-    homeDir, err := os.UserHomeDir()
-    if err != nil {
-        return nil, fmt.Errorf("unable to get user home directory: %w", err)
-    }
+func RemovePackageDependenciesGlobally(name, version string) error {
 
-    versionsDir := filepath.Join(homeDir, ".grog", "cache", name)
-    versions, err := os.ReadDir(versionsDir)
-    if err != nil {
-        return nil, fmt.Errorf("failed to read directory: %w", err)
-    }
+	if len(version) == 1 {
+		v := ver.GetMostRecentVersion(name)
+		version = v
+	}
 
-    var versionStrings []string
-    for _, version := range versions {
-        if version.IsDir() {
-            versionStrings = append(versionStrings, version.Name())
-        }
-    }
+	if strings.ContainsAny(version, "<>~^=") {
+		foundVersion, err := ver.BestMatchingVersion(name, version)
+		if err != nil {
+			return fmt.Errorf("failed to resolve version constraint '%s' : %w", version, err)
+		}
+		version = foundVersion
+	}
 
-    return versionStrings, nil
+	lockfile, err := ReadLockFile(name, version)
+	if err != nil {
+		return fmt.Errorf("failed to read lock file: %w", err)
+	}
+
+	if lockfile.Dependencies != nil {
+		for dep, ver := range lockfile.Dependencies {
+			os.RemoveAll("./node_modules/" + dep)
+			os.RemoveAll(Cache + "/" + dep)
+			if err := RemovePackageDependenciesGlobally(dep, ver); err != nil {
+				return fmt.Errorf("failed to remove dependencies: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
 
-func GetLatestVersion(name string) (string, error) {
-    homeDir, err := os.UserHomeDir()
-    if err != nil {
-        return "", fmt.Errorf("unable to get user home directory: %w", err)
-    }
+func RemovePackageDependenciesLocally(name, version string) error {
 
-    versionsDir := filepath.Join(homeDir, ".grog", "cache", name)
-    versions, err := os.ReadDir(versionsDir)
-    if err != nil {
-        return "", fmt.Errorf("failed to read directory: %w", err)
-    }
+	if len(version) == 1 {
+		v := ver.GetMostRecentVersion(name)
+		version = v
+	}
 
-    var latestVersion string
-    for _, version := range versions {
-        if version.IsDir() {
-            latestVersion = version.Name()
-        }
-    }
+	if strings.ContainsAny(version, "<>~^=") {
+		foundVersion, err := ver.BestMatchingVersion(name, version)
+		if err != nil {
+			return fmt.Errorf("failed to resolve version constraint '%s' : %w", version, err)
+		}
+		version = foundVersion
+	}
 
-    return latestVersion, nil
+	lockfile, err := ReadLockFile(name, version)
+	if err != nil {
+		return fmt.Errorf("failed to read lock file: %w", err)
+	}
+
+	if lockfile.Dependencies != nil {
+		for dep, ver := range lockfile.Dependencies {
+			os.RemoveAll("./node_modules/" + dep)
+			if err := RemovePackageDependenciesLocally(dep, ver); err != nil {
+				return fmt.Errorf("failed to remove dependencies: %w", err)
+			}
+		}
+	}
+
+	return nil
 }

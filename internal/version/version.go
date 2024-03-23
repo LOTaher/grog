@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"sort"
+    "os"
+    "path/filepath"
 
 	"github.com/Masterminds/semver/v3"
 )
@@ -113,3 +115,82 @@ func IsLatestVersion(pkg, version string) (bool, error) {
 
     return version == mostRecentVersion, nil
 }
+
+func GetVersions(name string) ([]string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get user home directory: %w", err)
+	}
+
+	versionsDir := filepath.Join(homeDir, ".grog", "cache", name)
+	versions, err := os.ReadDir(versionsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read directory: %w", err)
+	}
+
+	var versionStrings []string
+	for _, version := range versions {
+		if version.IsDir() {
+			versionStrings = append(versionStrings, version.Name())
+		}
+	}
+
+	return versionStrings, nil
+}
+
+func GetLatestVersion(name string) (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("unable to get user home directory: %w", err)
+	}
+
+	versionsDir := filepath.Join(homeDir, ".grog", "cache", name)
+	versions, err := os.ReadDir(versionsDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to read directory: %w", err)
+	}
+
+	var latestVersion string
+	for _, version := range versions {
+		if version.IsDir() {
+			latestVersion = version.Name()
+		}
+	}
+
+	return latestVersion, nil
+}
+
+func FindCorrectVersion(name, versionConstraint string) (string, error) {
+	versions, err := GetVersions(name)
+	if err != nil {
+		return "", fmt.Errorf("failed to get versions: %w", err)
+	}
+
+	constraint, err := semver.NewConstraint(versionConstraint)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse version constraint '%s': %w", versionConstraint, err)
+	}
+
+	var satisfyingVersions []*semver.Version
+	for _, v := range versions {
+		version, err := semver.NewVersion(v)
+		if err != nil {
+            return "", fmt.Errorf("failed to parse version '%s': %w", v, err)
+		}
+
+		if constraint.Check(version) {
+			satisfyingVersions = append(satisfyingVersions, version)
+		}
+	}
+
+	if len(satisfyingVersions) == 0 {
+		return "", fmt.Errorf("no version found that satisfies the constraint '%s' for package %s", versionConstraint, name)
+	}
+
+	sort.Slice(satisfyingVersions, func(i, j int) bool {
+		return satisfyingVersions[i].LessThan(satisfyingVersions[j])
+	})
+
+	return satisfyingVersions[len(satisfyingVersions)-1].String(), nil
+}
+

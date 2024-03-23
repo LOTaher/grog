@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 
-	//"github.com/LOTaher/grog/internal/cache"
 	"github.com/LOTaher/grog/internal/cache"
 	ver "github.com/LOTaher/grog/internal/version"
 	"github.com/spf13/cobra"
@@ -22,8 +21,6 @@ var uninstall = &cobra.Command{
 type Uninstaller struct {
 	Name    string
 	Version string
-	Global  bool
-	All     bool
 }
 
 func (u *Uninstaller) parsePackageDetails(pkg string) error {
@@ -46,7 +43,7 @@ func (u *Uninstaller) parsePackageDetails(pkg string) error {
 	}
 
 	if version == "" {
-		latestVersion, err := cache.GetLatestVersion(pkg)
+		latestVersion, err := ver.GetLatestVersion(pkg)
 		if err != nil {
 			return fmt.Errorf("unable to get latest version: %w", err)
 		}
@@ -87,12 +84,7 @@ func uninstallPackage(cmd *cobra.Command, args []string) {
 				return
 			}
 
-			global, _ := cmd.Flags().GetBool("g")
-			all, _ := cmd.Flags().GetBool("a")
-			uninstaller.Global = global 
-			uninstaller.All = all 
-
-			if err := performUninstallation(uninstaller.Name, uninstaller.Version, uninstaller.Global, uninstaller.All); err != nil {
+			if err := performUninstallation(uninstaller.Name, uninstaller.Version); err != nil {
 				errChan <- fmt.Errorf("uninstallation failed for %s@%s: %w", uninstaller.Name, uninstaller.Version, err)
 			}
 
@@ -110,18 +102,18 @@ func uninstallPackage(cmd *cobra.Command, args []string) {
 	}
 }
 
-func performUninstallation(name, version string, global, all bool) error {
-	os.RemoveAll("./node_modules/" + name)
+func performUninstallation(name, version string) error {
 
-	if global {
-		os.RemoveAll(cache.Cache + "/" + name + "/" + version)
-		fmt.Printf("Uninstalled package globally: %s@%s\n", name, version)
-	} else if all {
-		os.RemoveAll(cache.Cache + "/" + name)
-		fmt.Printf("Uninstalled all versions of package: %s\n", name)
-	} else {
-		fmt.Printf("Uninstalled package: %s@%s\n", name, version)
-	}
+    if _, err := os.Stat("./node_modules"); os.IsNotExist(err) {
+        fmt.Println("No packages installed within this directory.")
+    } else {
+        if err := cache.RemovePackageDependenciesLocally(name, version); err != nil {
+            return fmt.Errorf("failed to remove dependencies: %w", err)
+        }
+        os.RemoveAll("./node_modules/" + name)
+        fmt.Printf("Uninstalled package: %s\n", name)
+    }
 
 	return nil
 }
+

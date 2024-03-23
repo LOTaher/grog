@@ -134,7 +134,7 @@ func performInstallation(name, version string) error {
 				return err
 			}
 
-			versions, err := cache.GetVersions(name)
+			versions, err := ver.GetVersions(name)
 			if err != nil {
 				return err
 			}

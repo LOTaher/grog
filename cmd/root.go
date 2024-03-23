@@ -22,7 +22,4 @@ func init() {
 	root.AddCommand(install)
 	root.AddCommand(clear)
 	root.AddCommand(uninstall)
-	uninstall.PersistentFlags().BoolP("global","g", false, "Uninstall globally.")
-	uninstall.PersistentFlags().BoolP("all", "a", false, "Uninstall every version.")
-
 }
