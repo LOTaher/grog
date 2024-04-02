@@ -22,4 +22,5 @@ func init() {
 	root.AddCommand(install)
 	root.AddCommand(clear)
 	root.AddCommand(uninstall)
+    root.AddCommand(initCmd)
 }
