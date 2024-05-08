@@ -23,7 +23,7 @@ Benchmark of [bun](https://bun.sh/) vs. grog using [hyperfine](https://github.co
 
 <img width="1419" alt="Grog vs Bun Benchmark React" src="https://github.com/LOTaher/grog/assets/86690869/9f43fc1c-07c7-49dd-8f0d-b12abdf5f2b0">
 
-*Due to the nature of HTTP, it is hard to give an accurate answer on who is "faster", as there are plenty of times bun is faster than grog. Bun is currently faster at loading cached modules.*
+*Due to the nature of HTTP, it is hard to give an accurate answer on who is "faster", as there are plenty of times bun is faster than grog.*
 
 Benchmark of [npm](https://www.npmjs.com/) vs. grog using [hyperfine](https://github.com/sharkdp/hyperfine)
 
